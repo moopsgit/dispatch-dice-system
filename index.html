@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dispatch Mechanic</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #f3eadd;
+            --hex-base: #2f2921;
+            --hex-grid: #4b453d;
+            --hero-fill: #86632b;
+            --hero-edge: #f8b54b;
+            --mission-stroke: #fefdf1;
+            --mission-edge: #fefdf1;
+            --mission-fill: rgba(254, 253, 241, 0.15);
+            --overlap-neutral: #c9a367;
+            --overlap-success: #79ac72;
+            --overlap-fail: #f17961;
+            --border-color: #bca488; 
+            --chance-bg: #d5ae83;
+            --chance-text: #725b40;
+            --brown-text: #3e3228;
+            --panel-bg: #f3eadd;         
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                linear-gradient(45deg, #e8ded3 25%, transparent 25%, transparent 75%, #e8ded3 75%, #e8ded3),
+                linear-gradient(45deg, #e8ded3 25%, transparent 25%, transparent 75%, #e8ded3 75%, #e8ded3);
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px;
+            color: var(--brown-text);
+            font-family: 'Roboto Condensed', sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px 10px;
+            box-sizing: border-box;
+        }
+
+        #main-layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap; 
+            justify-content: center;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid var(--border-color); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+        }
+
+        #radar-panel {
+            flex: 1 1 400px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 500px;
+        }
+
+        #radar-wrapper {
+            position: relative;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas { 
+            z-index: 1; 
+            max-width: 100%; 
+            height: auto !important;
+            aspect-ratio: 1 / 1; 
+            border-radius: 50%;
+        }
+
+        #right-panel {
+            flex: 1 1 350px;
+            max-width: 500px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .tab-header {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background-color: transparent;
+            font-family: 'Roboto Condensed', sans-serif;
+            font-weight: bold;
+            font-size: 16px;
+            color: var(--chance-text);
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: background 0.2s;
+        }
+        .tab-btn:hover { background-color: rgba(0,0,0,0.05); }
+        .tab-btn.active {
+            background-color: var(--border-color);
+            color: #fff;
+        }
+
+        .tab-content {
+            padding: 20px;
+            flex-grow: 1;
+            overflow-y: auto;
+            display: none; 
+            -webkit-overflow-scrolling: touch; 
+        }
+        .tab-content.active { display: block; }
+
+        h2 {
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--chance-text);
+            padding-bottom: 5px;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--chance-text);
+        }
+        
+        .text-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        .text-input-group label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--chance-text);
+            font-weight: bold;
+        }
+        .text-input-group input {
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            background-color: #fff;
+            font-family: 'Roboto Condensed', sans-serif;
+            font-weight: bold;
+            color: var(--brown-text);
+            border-radius: 4px;
+            font-size: 16px; 
+        }
+        .text-input-group input:focus { outline: none; border-color: var(--hero-fill); }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px; 
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--chance-text);
+        }
+        .stat-label { width: 80px; }
+
+        input[type=range] {
+            -webkit-appearance: none; flex-grow: 1; margin: 0 10px; background: transparent; cursor: pointer; height: 30px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 6px; background: var(--hex-grid); border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
+            background: var(--chance-text); margin-top: -7px; border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=number] {
+            width: 40px; padding: 8px; border: 2px solid var(--border-color);
+            border-radius: 4px; background-color: #fff;
+            font-family: 'Roboto Condensed', sans-serif; font-weight: bold;
+            font-size: 16px; text-align: center; color: var(--chance-text);
+        }
+
+        #roll-button {
+            width: 100%; padding: 18px; margin-top: 10px;
+            background-color: var(--chance-text); color: var(--mission-edge);
+            font-family: 'Roboto Condensed', sans-serif; font-size: 22px; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer; text-transform: uppercase;
+            letter-spacing: 1px; transition: all 0.2s;
+            display: flex; justify-content: center; align-items: center; gap: 12px;
+            box-shadow: 0 4px 0 var(--hex-base);
+        }
+        #roll-button:active { transform: translateY(4px); box-shadow: none; }
+        #roll-button:disabled { background-color: #998a7b; box-shadow: none; cursor: not-allowed; }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #fff;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 6px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .hist-win { border-left-color: var(--overlap-success); }
+        .hist-lose { border-left-color: var(--overlap-fail); }
+        .hist-details { display: flex; flex-direction: column; }
+        .hist-names { font-weight: bold; color: var(--brown-text); font-size: 14px; }
+        .hist-result { font-size: 12px; color: #777; margin-top: 2px; }
+        .hist-badge { 
+            font-weight: bold; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: white;
+        }
+
+        @media (max-width: 768px) {
+            #main-layout { flex-direction: column; align-items: center; }
+            #right-panel { width: 100%; height: auto; min-height: 500px; }
+            .panel { width: 100%; max-width: 100%; }
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="main-layout">
+
+    <div id="radar-panel" class="panel">
+        <div id="radar-wrapper">
+            <canvas id="gameCanvas" width="500" height="500"></canvas>
+        </div>
+        <div id="recording-status" style="text-align:center; margin-top:10px; color:var(--chance-text); font-size:12px; display:none;">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> RECORDING REPLAY...
+        </div>
+    </div>
+
+    <div id="right-panel" class="panel">
+        <div class="tab-header">
+            <button class="tab-btn active" onclick="switchTab('controls')">Controls</button>
+            <button class="tab-btn" onclick="switchTab('history')">History</button>
+        </div>
+
+        <div id="tab-controls" class="tab-content active">
+            <div class="text-input-group">
+                <label>Mission</label>
+                <input type="text" id="mission-name" placeholder="Teach at Sunday School">
+            </div>
+            <div class="text-input-group">
+                <label>Hero</label>
+                <input type="text" id="hero-name" placeholder="Malevola">
+            </div>
+
+            <div class="control-group">
+                <h2><i class="fa-regular fa-square"></i> Mission Stats</h2>
+                <div id="mission-inputs"></div>
+            </div>
+            <br>
+            <div class="control-group">
+                <h2><i class="fa-solid fa-square"></i> Hero Stats</h2>
+                <div id="hero-inputs"></div>
+            </div>
+
+            <button id="roll-button">
+                <span>DISPATCH</span>
+            </button>
+        </div>
+
+        <div id="tab-history" class="tab-content">
+            <div id="history-list">
+                <div style="text-align: center; color: #999; margin-top: 20px;">No rolls yet.</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div style="font-family:'Font Awesome 6 Free'; font-weight:900; height:0; overflow:hidden;">.</div>
+
+<script>
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.getElementById('tab-' + tabName).classList.add('active');
+    }
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = 250;
+    const centerY = 250;
+    const chartRadius = 165; 
+    const sides = 5;
+
+    const categories = [
+        { name: "Combat", icon: "\uf255" },
+        { name: "Vigor", icon: "\uf3ed" },
+        { name: "Mobility", icon: "\uf70c" },
+        { name: "Charisma", icon: "\uf075" },
+        { name: "Intellect", icon: "\uf5dc" }
+    ];
+
+    let missionData = [8, 7, 6, 8, 7]; 
+    let heroData = [5, 9, 5, 6, 8];
+    
+    let isRolling = false;
+    let ball = { x: centerX, y: centerY, vx: 0, vy: 0, stopped: true };
+    let finalResult = null;
+    let cachedChance = 0;
+
+    let mediaRecorder;
+    let recordedChunks = [];
+
+    const colors = {
+        base: "#2f2921",
+        grid: "#4b453d",
+        heroFill: "rgba(134, 99, 43, 0.5)", 
+        heroStroke: "#86632b",
+        heroEdge: "#f8b54b",
+        missionStroke: "#fefdf1", 
+        missionEdge: "#fefdf1",
+        missionFill: "rgba(254, 253, 241, 0.15)", 
+        overlapNeutral: "rgba(201, 163, 103, 0.6)", 
+        overlapSuccess: "rgba(121, 172, 114, 0.8)", 
+        overlapFail: "rgba(241, 121, 97, 0.8)",
+        creamText: "#f3eadd",
+        darkText: "#3e3228",
+        chanceBg: "#d5ae83",
+        chanceText: "#725b40",
+        panelBorder: "#bca488"
+    };
+
+    function getVertex(index, value1to10, scalar = 1.0) {
+        let normalized = value1to10 / 10;
+        normalized = Math.max(0.1, Math.min(1.0, normalized));
+        const r = chartRadius * normalized * scalar;
+        const angle = (index * (Math.PI * 2) / sides) - (Math.PI / 2); 
+        return {
+            x: centerX + r * Math.cos(angle),
+            y: centerY + r * Math.sin(angle)
+        };
+    }
+
+    function getPolyVertices(dataValues, scalar = 1.0) {
+        return dataValues.map((val, i) => getVertex(i, val, scalar));
+    }
+
+    function createInputGroup(containerId, dataArray) {
+        const container = document.getElementById(containerId);
+        categories.forEach((cat, i) => {
+            const row = document.createElement('div');
+            row.className = 'stat-row';
+            row.innerHTML = `
+                <div class="stat-label">${cat.name}</div>
+                <input type="range" min="1" max="10" step="1" value="${dataArray[i]}">
+                <input type="number" min="1" max="10" value="${dataArray[i]}">
+            `;
+            container.appendChild(row);
+
+            const slider = row.querySelector('input[type=range]');
+            const numBox = row.querySelector('input[type=number]');
+
+            function updateVal(val) {
+                val = Math.max(1, Math.min(10, parseInt(val) || 1));
+                dataArray[i] = val;
+                slider.value = val;
+                numBox.value = val;
+                updateChance();
+                draw(); 
+            }
+
+            slider.addEventListener('input', (e) => { if(!isRolling) updateVal(e.target.value); });
+            numBox.addEventListener('input', (e) => { if(!isRolling) updateVal(e.target.value); });
+        });
+    }
+
+    function startRecording() {
+        if (typeof MediaRecorder === 'undefined') return;
+        const stream = canvas.captureStream(30); 
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        recordedChunks = [];
+        mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = function() {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            document.body.appendChild(a);
+            a.style = 'display: none';
+            a.href = url;
+            // File naming logic uses current inputs or fallbacks
+            let mName = document.getElementById('mission-name').value || "Mission";
+            const date = new Date().toISOString().slice(0,10);
+            a.download = `dispatch_${mName.replace(/\s+/g,'_')}_${date}.webm`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.getElementById('recording-status').style.display = 'none';
+        };
+        mediaRecorder.start();
+        document.getElementById('recording-status').style.display = 'block';
+    }
+
+    function stopRecording() {
+        if(mediaRecorder && mediaRecorder.state === 'recording') {
+            setTimeout(() => { mediaRecorder.stop(); }, 1200); 
+        }
+    }
+
+    function addHistoryEntry(win, chance) {
+        const list = document.getElementById('history-list');
+        if(list.children.length === 1 && list.innerText.includes("No rolls")) list.innerHTML = "";
+        
+        // Use placeholders if empty
+        const mission = document.getElementById('mission-name').value || "Teach at Sunday School";
+        const hero = document.getElementById('hero-name').value || "Malevola";
+        
+        const entry = document.createElement('div');
+        entry.className = `history-item ${win ? 'hist-win' : 'hist-lose'}`;
+        entry.innerHTML = `
+            <div class="hist-details">
+                <span class="hist-names">${mission} <span style="font-weight:normal;color:#999">vs</span> ${hero}</span>
+                <span class="hist-result">Chance: ${chance}%</span>
+            </div>
+            <div class="hist-badge" style="background-color:${win ? colors.overlapSuccess : colors.overlapFail}">
+                ${win ? 'SUCCESS' : 'FAIL'}
+            </div>
+        `;
+        list.insertBefore(entry, list.firstChild);
+    }
+
+    function updateChance() {
+        const missionPoly = getPolyVertices(missionData);
+        const heroPoly = getPolyVertices(heroData);
+        let totalDots = 2500;
+        let hitsInMission = 0; let hitsInBoth = 0;
+        const box = chartRadius * 1.1; 
+        for(let i=0; i<totalDots; i++) {
+            let p = {x: centerX+(Math.random()-0.5)*2*box, y: centerY+(Math.random()-0.5)*2*box};
+            if(pointInPoly(p, missionPoly)) {
+                hitsInMission++;
+                if(pointInPoly(p, heroPoly)) hitsInBoth++;
+            }
+        }
+        cachedChance = hitsInMission > 0 ? Math.round((hitsInBoth / hitsInMission) * 100) : 0;
+        return cachedChance;
+    }
+
+    function getChance() { return cachedChance; }
+
+    function pointInPoly(p, vertices) {
+        let inside = false;
+        for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+            let xi = vertices[i].x, yi = vertices[i].y;
+            let xj = vertices[j].x, yj = vertices[j].y;
+            let intersect = ((yi > p.y) != (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    function resolveBounce(ball, vertices) {
+        for (let i = 0; i < vertices.length; i++) {
+            let p1 = vertices[i];
+            let p2 = vertices[(i + 1) % vertices.length]; 
+            let wallX = p2.x - p1.x; let wallY = p2.y - p1.y;
+            let normalX = wallY; let normalY = -wallX;
+            let len = Math.sqrt(normalX*normalX + normalY*normalY);
+            normalX /= len; normalY /= len;
+            let toBallX = ball.x - p1.x; let toBallY = ball.y - p1.y;
+            let dist = toBallX * normalX + toBallY * normalY;
+
+            if (dist > -8 && dist < 8) {
+                let dot = ball.vx * normalX + ball.vy * normalY;
+                if (dot > 0) {
+                    ball.vx -= 2 * dot * normalX; ball.vy -= 2 * dot * normalY;
+                    ball.x -= normalX * (8 - dist + 1); ball.y -= normalY * (8 - dist + 1);
+                }
+            }
+        }
+    }
+
+    function draw() {
+        ctx.fillStyle = colors.creamText; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const maxPoly = getPolyVertices([10,10,10,10,10]);
+        ctx.fillStyle = colors.base; 
+        ctx.beginPath(); ctx.moveTo(maxPoly[0].x, maxPoly[0].y);
+        maxPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.fill();
+        
+        ctx.strokeStyle = colors.grid; ctx.lineWidth = 3; ctx.stroke();
+        ctx.lineWidth = 1;
+        [2, 4, 6, 8].forEach(level => {
+            const poly = getPolyVertices([level, level, level, level, level]);
+            ctx.beginPath(); ctx.moveTo(poly[0].x, poly[0].y);
+            poly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.stroke();
+        });
+        maxPoly.forEach(p => {
+            ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.lineTo(p.x, p.y); ctx.stroke();
+        });
+
+        // 3. ICONS
+        ctx.fillStyle = colors.missionEdge; 
+        ctx.font = '900 20px "Font Awesome 6 Free"'; 
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        
+        categories.forEach((cat, i) => {
+            const pos = getVertex(i, 14.5); 
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, 22, 0, Math.PI*2);
+            ctx.fillStyle = colors.grid;
+            ctx.fill();
+            ctx.strokeStyle = colors.panelBorder;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = colors.missionEdge;
+            ctx.fillText(cat.icon, pos.x, pos.y);
+        });
+
+        const missionPoly = getPolyVertices(missionData);
+        const heroPoly = getPolyVertices(heroData);
+
+        // 4. HERO POLY
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(heroPoly[0].x, heroPoly[0].y);
+        heroPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath();
+        ctx.fillStyle = colors.heroFill; ctx.fill();
+        ctx.strokeStyle = colors.heroStroke; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = colors.heroEdge;
+        heroPoly.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill(); });
+        ctx.restore();
+
+        // 5. MISSION POLY
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(missionPoly[0].x, missionPoly[0].y);
+        missionPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath();
+        ctx.fillStyle = colors.missionFill; ctx.fill();
+        ctx.strokeStyle = colors.missionStroke; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fillStyle = colors.missionEdge;
+        missionPoly.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill(); });
+        ctx.restore();
+
+        // 6. OVERLAP
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(missionPoly[0].x, missionPoly[0].y);
+        missionPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.clip();
+        ctx.beginPath(); ctx.moveTo(heroPoly[0].x, heroPoly[0].y);
+        heroPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath();
+        
+        // Ensure color logic is checked
+        if (ball.stopped && finalResult) ctx.fillStyle = finalResult === 'success' ? colors.overlapSuccess : colors.overlapFail;
+        else ctx.fillStyle = colors.overlapNeutral;
+        ctx.fill(); ctx.restore();
+
+        // 7. CHANCE BOX (Shifted Up to 430)
+        ctx.save();
+        ctx.fillStyle = colors.chanceBg;
+        const boxW = 120; const boxH = 40;
+        const boxX = centerX - boxW/2; 
+        const boxY = 430; // SHIFTED UP FROM 460
+        ctx.fillRect(boxX, boxY, boxW, boxH);
+        ctx.strokeStyle = colors.chanceText;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(boxX, boxY, boxW, boxH);
+        ctx.fillStyle = colors.chanceText;
+        ctx.font = "800 24px 'Roboto Condensed'";
+        ctx.fillText(cachedChance + "%", centerX + 10, boxY + boxH/2 + 2);
+        ctx.font = '900 20px "Font Awesome 6 Free"';
+        ctx.fillText("\uf140", centerX - 30, boxY + boxH/2 + 2);
+        ctx.restore();
+
+        // 8. BALL & RESULT
+        if(ball.stopped && finalResult) {
+            const color = finalResult === 'success' ? colors.overlapSuccess : colors.overlapFail;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, 16, 0, Math.PI*2);
+            ctx.fillStyle = color; ctx.fill();
+            ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath();
+            if (finalResult === 'success') {
+                ctx.moveTo(ball.x - 6, ball.y + 1); ctx.lineTo(ball.x - 2, ball.y + 5); ctx.lineTo(ball.x + 6, ball.y - 5);
+            } else {
+                ctx.moveTo(ball.x - 5, ball.y - 5); ctx.lineTo(ball.x + 5, ball.y + 5); ctx.moveTo(ball.x + 5, ball.y - 5); ctx.lineTo(ball.x - 5, ball.y + 5);
+            }
+            ctx.stroke();
+        } else {
+            // Ball rolling
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, 8, 0, Math.PI*2);
+            ctx.fillStyle = "#000000"; ctx.fill();
+            ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
+        }
+        
+        // 9. NAME OVERLAY (Using placeholders if empty)
+        if(isRolling || ball.stopped) {
+            const mName = document.getElementById('mission-name').value || "TEACH AT SUNDAY SCHOOL";
+            const hName = document.getElementById('hero-name').value || "MALEVOLA";
+
+            // Force dark color for visibility
+            ctx.fillStyle = colors.darkText; // #3e3228
+            ctx.font = "300 16px 'Roboto Condensed'"; 
+            ctx.textAlign = "center";
+            ctx.fillText(mName.toUpperCase(), centerX, 30);
+            
+            ctx.font = "300 12px 'Roboto Condensed'";
+            ctx.fillStyle = "#666"; 
+            ctx.fillText(hName.toUpperCase(), centerX, 50);
+        }
+
+        if(isRolling && !ball.stopped) {
+            ball.x += ball.vx; ball.y += ball.vy;
+            ball.vx *= 0.99; ball.vy *= 0.99; 
+            resolveBounce(ball, missionPoly);
+
+            if(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy) < 0.05) {
+                ball.stopped = true;
+                ball.vx = 0; ball.vy = 0;
+                isRolling = false;
+                document.getElementById('roll-button').disabled = false;
+                
+                const win = pointInPoly(ball, missionPoly) && pointInPoly(ball, heroPoly);
+                finalResult = win ? 'success' : 'fail';
+                
+                addHistoryEntry(win, cachedChance);
+                
+                // FORCE ONE LAST DRAW TO SHOW ICON
+                draw();
+                
+                stopRecording();
+            }
+        }
+        
+        if (isRolling) {
+            requestAnimationFrame(draw);
+        }
+    }
+
+    document.getElementById('roll-button').addEventListener('click', () => {
+        isRolling = true;
+        document.getElementById('roll-button').disabled = true;
+        ball.stopped = false;
+        finalResult = null;
+        ball.x = centerX; ball.y = centerY;
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 12 + Math.random() * 5;
+        ball.vx = Math.cos(ang) * spd; ball.vy = Math.sin(ang) * spd;
+        
+        startRecording();
+        draw(); 
+    });
+
+    createInputGroup('mission-inputs', missionData);
+    createInputGroup('hero-inputs', heroData);
+    updateChance();
+    setTimeout(draw, 500); 
+
+</script>
+</body>
+</html>
