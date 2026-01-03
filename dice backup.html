@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dispatch Mechanic</title>
+    <title>Dispatch Mechanic - Final</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&display=swap" rel="stylesheet">
     
@@ -85,12 +85,8 @@
             max-width: 100%; 
             height: auto !important;
             aspect-ratio: 1 / 1; 
-            /* REMOVED BORDER RADIUS SO THE BOX DOESN'T CLIP */
-            /* border-radius: 50%; */ 
+            border-radius: 50%;
         }
-
-        /* HTML ICONS (Hidden) */
-        .icon-container { display: none; }
 
         #right-panel {
             flex: 1 1 350px;
@@ -214,12 +210,12 @@
             </div>
 
             <div class="control-group">
-                <h2><i class="fa-regular fa-square"></i> Mission Stats</h2>
+                <h2>Mission Stats</h2>
                 <div id="mission-inputs"></div>
             </div>
             <br>
             <div class="control-group">
-                <h2><i class="fa-solid fa-square"></i> Hero Stats</h2>
+                <h2>Hero Stats</h2>
                 <div id="hero-inputs"></div>
             </div>
 
@@ -235,7 +231,8 @@
 </div>
 
 <script>
-    // --- ASSET CONFIG ---
+    /* --- ASSET LOADING --- */
+    // Note: These MUST exist in the same folder as index.html
     const categories = [
         { name: "Combat", src: "Icon_StatIcons_Combat.webp", img: null },
         { name: "Vigor", src: "Icon_StatIcons_Vigor.webp", img: null },
@@ -244,28 +241,39 @@
         { name: "Intellect", src: "Icon_StatIcons_Intellect.png", img: null }
     ];
 
-    // --- CHART GEOMETRY ---
+    let imagesLoaded = 0;
+    function loadImages() {
+        categories.forEach(cat => {
+            const img = new Image();
+            img.src = cat.src;
+            img.onload = () => {
+                cat.img = img;
+                imagesLoaded++;
+                // Force redraw every time an image loads
+                if (imagesLoaded <= categories.length) draw();
+            };
+            img.onerror = () => { console.log("Failed to load: " + cat.src); };
+        });
+    }
+
+    /* --- CONFIG --- */
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    
-    // ADJUSTED CENTER
     const centerX = 250;
-    const centerY = 285; 
-    
-    // SIZES
-    const chartRadius = 145; 
-    const iconRadius = 177; 
+    const centerY = 280; // Shifted down for text space
+    const chartRadius = 135; // Smaller chart
+    const iconRadius = 175; // 230px from center (Very far out)
     const sides = 5;
 
     let missionData = [8, 7, 6, 8, 7]; 
     let heroData = [5, 9, 5, 6, 8];
+    
     let isRolling = false;
     let ball = { x: centerX, y: centerY, vx: 0, vy: 0, stopped: true };
     let finalResult = null;
     let cachedChance = 0;
     let mediaRecorder;
     let recordedChunks = [];
-    let imagesLoaded = 0;
 
     const colors = {
         base: "#2f2921",
@@ -283,52 +291,10 @@
         darkText: "#3e3228",
         chanceBg: "#d5ae83",
         chanceText: "#725b40",
-        panelBorder: "#bca488",
-        panelBorder2: "#998a7b",
-        iconbg: "#3f3731"
+        panelBorder: "#bca488"
     };
 
-    // --- INIT ---
-    document.addEventListener("DOMContentLoaded", () => {
-        createInputGroup('mission-inputs', missionData);
-        createInputGroup('hero-inputs', heroData);
-        
-        categories.forEach(cat => {
-            const img = new Image();
-            img.src = cat.src;
-            img.onload = () => {
-                cat.img = img;
-                imagesLoaded++;
-                draw(); 
-            };
-        });
-
-        updateChance();
-        draw(); 
-
-        document.getElementById('roll-button').addEventListener('click', rollDice);
-    });
-
-    // --- LOGIC ---
-    function rollDice() {
-        isRolling = true;
-        document.getElementById('roll-button').disabled = true;
-        ball.stopped = false;
-        finalResult = null;
-        ball.x = centerX; ball.y = centerY;
-        const ang = Math.random() * Math.PI * 2;
-        const spd = 12 + Math.random() * 5;
-        ball.vx = Math.cos(ang) * spd; ball.vy = Math.sin(ang) * spd;
-        startRecording(); draw(); 
-    }
-
-    function switchTab(tabName) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        document.getElementById('tab-' + tabName).classList.add('active');
-    }
-
+    /* --- MATH --- */
     function getVertex(index, radius) {
         const angle = (index * (Math.PI * 2) / sides) - (Math.PI / 2); 
         return {
@@ -374,23 +340,19 @@
         cachedChance = hitsInMission > 0 ? Math.round((hitsInBoth / hitsInMission) * 100) : 0;
     }
 
-    // --- DRAWING ENGINE ---
+    /* --- DRAWING --- */
     function draw() {
+        // Background
         ctx.fillStyle = colors.creamText; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 1. OUTER RADAR PENTAGON (With GOLD Border)
+        // Radar Grid
         const maxPoly = [1,2,3,4,5].map((_, i) => getVertex(i, chartRadius));
         ctx.fillStyle = colors.base; 
         ctx.beginPath(); ctx.moveTo(maxPoly[0].x, maxPoly[0].y);
         maxPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.fill();
         
-        ctx.strokeStyle = colors.panelBorder2; // GOLD
-        ctx.lineWidth = 4; // Thicker line so it's visible
-        ctx.stroke();
-
-        // 2. INNER GRID
-        ctx.strokeStyle = colors.grid; ctx.lineWidth = 2; 
+        ctx.strokeStyle = colors.grid; ctx.lineWidth = 3; ctx.stroke();
         [0.2, 0.4, 0.6, 0.8].forEach(scale => {
             ctx.beginPath();
             [0,1,2,3,4].forEach(i => {
@@ -403,30 +365,36 @@
             ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.lineTo(p.x, p.y); ctx.stroke();
         });
 
-        // 3. ICONS (With GOLD Border)
+        // ICONS (The Fix: Drawing images at specific radius)
         categories.forEach((cat, i) => {
-            const pos = getVertex(i, iconRadius); 
+            const pos = getVertex(i, iconRadius); // Uses 230px radius
             
-            // Background Circle
+            // Draw Circle Background
             ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 23, 0, Math.PI*2);
-            ctx.fillStyle = colors.iconbg; ctx.fill();
-            
-            // Gold Border
-            ctx.strokeStyle = colors.panelBorder2; 
-            ctx.lineWidth = 3;
+            ctx.arc(pos.x, pos.y, 24, 0, Math.PI*2);
+            ctx.fillStyle = colors.grid;
+            ctx.fill();
+            ctx.strokeStyle = colors.panelBorder;
+            ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Image
-            if (cat.img) {  
-                try { ctx.drawImage(cat.img, pos.x - 20, pos.y - 20 , 40, 40); } catch(e){}
+            // Draw Image (if loaded)
+            if (cat.img) {
+                // Draw 32x32 image centered
+                ctx.drawImage(cat.img, pos.x - 16, pos.y - 16, 32, 32);
+            } else {
+                // Fallback Text if image broken
+                ctx.fillStyle = "white";
+                ctx.font = "10px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(cat.name[0], pos.x, pos.y+3);
             }
         });
 
         const missionPoly = getPolyVertices(missionData);
         const heroPoly = getPolyVertices(heroData);
 
-        // Layers
+        // Hero Poly
         ctx.save();
         ctx.beginPath(); ctx.moveTo(heroPoly[0].x, heroPoly[0].y);
         heroPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath();
@@ -436,6 +404,7 @@
         heroPoly.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill(); });
         ctx.restore();
 
+        // Mission Poly
         ctx.save();
         ctx.beginPath(); ctx.moveTo(missionPoly[0].x, missionPoly[0].y);
         missionPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath();
@@ -445,6 +414,7 @@
         missionPoly.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill(); });
         ctx.restore();
 
+        // Overlap
         ctx.save();
         ctx.beginPath(); ctx.moveTo(missionPoly[0].x, missionPoly[0].y);
         missionPoly.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.clip();
@@ -454,62 +424,17 @@
         else ctx.fillStyle = colors.overlapNeutral;
         ctx.fill(); ctx.restore();
 
-        // Chance Box (Safe Position)
+        // Chance Box
         ctx.save();
         ctx.fillStyle = colors.chanceBg;
         const boxW = 120; const boxH = 40;
-        const boxX = centerX - boxW/2; const boxY = 445; 
+        const boxX = centerX - boxW/2; const boxY = 430; 
         ctx.fillRect(boxX, boxY, boxW, boxH);
         ctx.strokeStyle = colors.chanceText; ctx.lineWidth = 3; ctx.strokeRect(boxX, boxY, boxW, boxH);
-        
         ctx.fillStyle = colors.chanceText;
-        ctx.textBaseline = "middle";
-        
-        // Draw Number (Shifted slightly right)
         ctx.font = "800 24px 'Roboto Condensed'";
-        ctx.textAlign = "left"; 
-        ctx.fillText(cachedChance + "%", centerX - 5, boxY + boxH/2 + 2);
-
-        /* --- DRAWING THE CUSTOM TARGET ICON (GAME ACCURATE) --- */
-        const ix = centerX - 25; // Icon Center X
-        const iy = boxY + boxH/2; // Icon Center Y
-        
-        ctx.strokeStyle = colors.chanceText;
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-
-        // Outer Target Circle
-        ctx.beginPath();
-        ctx.arc(ix, iy, 9, 0, Math.PI * 2); 
-        ctx.stroke();
-        
-        // Inner Target Circle
-        ctx.beginPath();
-        ctx.arc(ix, iy, 5, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Center Dot
-        ctx.beginPath();
-        ctx.arc(ix, iy, 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = colors.chanceText;
-        ctx.fill();
-
-        // The Arrow Shaft (Top Right)
-        ctx.beginPath();
-        ctx.moveTo(ix + 2, iy - 2); 
-        ctx.lineTo(ix + 10, iy - 10); 
-        
-        // The Fletching (Feathers)
-        ctx.moveTo(ix + 7, iy - 10); 
-        ctx.lineTo(ix + 10, iy - 10);
-        ctx.lineTo(ix + 10, iy - 7);
-        ctx.stroke();
-        /* ---------------------------------------------------- */
-
-        ctx.restore();
-        
-
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(cachedChance + "%", centerX, boxY + boxH/2 + 2);
         ctx.restore();
 
         // Ball & Result
@@ -537,18 +462,20 @@
             const mName = document.getElementById('mission-name').value || "TEACH AT SUNDAY SCHOOL";
             const hName = document.getElementById('hero-name').value || "MALEVOLA";
             ctx.fillStyle = colors.darkText; 
-            ctx.font = "300 20px 'Roboto Condensed'"; 
+            ctx.font = "300 16px 'Roboto Condensed'"; 
             ctx.textAlign = "center";
-            ctx.fillText(mName.toUpperCase(), centerX, 40);
-            
-            ctx.font = "300 14px 'Roboto Condensed'";
+            ctx.fillText(mName.toUpperCase(), centerX, 30);
+            ctx.font = "300 12px 'Roboto Condensed'";
             ctx.fillStyle = "#666"; 
-            ctx.fillText(hName.toUpperCase(), centerX, 65);
+            ctx.fillText(hName.toUpperCase(), centerX, 50);
         }
 
+        // Animation
         if(isRolling && !ball.stopped) {
             ball.x += ball.vx; ball.y += ball.vy;
             ball.vx *= 0.99; ball.vy *= 0.99;
+            
+            // Wall bounce logic
             const mPoly = getPolyVertices(missionData);
             for (let i = 0; i < mPoly.length; i++) {
                 let p1 = mPoly[i];
@@ -571,8 +498,10 @@
                 ball.stopped = true; ball.vx = 0; ball.vy = 0;
                 isRolling = false;
                 document.getElementById('roll-button').disabled = false;
+                
                 const win = pointInPoly(ball, mPoly) && pointInPoly(ball, getPolyVertices(heroData));
                 finalResult = win ? 'success' : 'fail';
+                
                 addHistoryEntry(win, cachedChance);
                 draw();
                 stopRecording();
@@ -580,6 +509,14 @@
         }
         
         if (isRolling) requestAnimationFrame(draw);
+    }
+
+    /* --- INTERACTIONS --- */
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.getElementById('tab-' + tabName).classList.add('active');
     }
 
     function createInputGroup(containerId, dataArray) {
@@ -653,6 +590,23 @@
         list.insertBefore(entry, list.firstChild);
     }
 
+    document.getElementById('roll-button').addEventListener('click', () => {
+        isRolling = true;
+        document.getElementById('roll-button').disabled = true;
+        ball.stopped = false;
+        finalResult = null;
+        ball.x = centerX; ball.y = centerY;
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 12 + Math.random() * 5;
+        ball.vx = Math.cos(ang) * spd; ball.vy = Math.sin(ang) * spd;
+        startRecording(); draw(); 
+    });
+
+    createInputGroup('mission-inputs', missionData);
+    createInputGroup('hero-inputs', heroData);
+    loadImages();
+    updateChance();
+    setTimeout(draw, 500); 
 </script>
 </body>
 </html>
